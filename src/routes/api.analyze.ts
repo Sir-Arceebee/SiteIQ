@@ -1,21 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { computeRedundancy, type NearbyPipeline } from "@/server/redundancy";
-// import { siteFailureRisk, type PipelineFeature } from "@/server/risk-model";
-// import { waterScore, schoolPenalty } from "@/server/water-access";
-
-/**
- * NOTE: For now this endpoint focuses on what actually works against the
- * pipeline dataset: nearby pipelines, min-cut estimate, and supply
- * diversity status. Failure risk, water, school, and grid scores are
- * intentionally commented out below — they'll come back online once
- * those datasets / models are wired in.
- */
 
 type NearbyPipelineGeo = NearbyPipeline & {
   diameter_in?: number | null;
   geom_geojson: string;
 };
+
+// Use anon key server-side — pipelines table has public read RLS,
+// and nearby_pipelines_geojson is granted to anon. No service role needed.
+function getSupabase() {
+  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_PUBLISHABLE_KEY ??
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Missing Supabase env vars (SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY).",
+    );
+  }
+  return createClient<Database>(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 export const Route = createFileRoute("/api/analyze")({
   server: {
@@ -40,7 +48,8 @@ export const Route = createFileRoute("/api/analyze")({
         }
 
         try {
-          const pipesRes = await supabaseAdmin.rpc("nearby_pipelines_geojson", {
+          const supabase = getSupabase();
+          const pipesRes = await supabase.rpc("nearby_pipelines_geojson", {
             lat,
             lon,
             radius_m: 80_000,
@@ -49,19 +58,6 @@ export const Route = createFileRoute("/api/analyze")({
 
           const pipelines = (pipesRes.data ?? []) as NearbyPipelineGeo[];
           const redundancy = computeRedundancy(pipelines);
-
-          // --- temporarily disabled scores -------------------------------
-          // const [waterRes, schoolRes, gridRes] = await Promise.all([
-          //   supabaseAdmin.rpc("nearest_water", { lat, lon, radius_m: 200_000 }),
-          //   supabaseAdmin.rpc("nearest_school", { lat, lon }),
-          //   supabaseAdmin.rpc("nearest_grid_cost", { lat, lon }),
-          // ]);
-          // const failure_probability = siteFailureRisk(pipelines);
-          // const water_score = waterScore(...);
-          // const school_penalty = schoolPenalty(...);
-          // const grid_score = gridCostScore(...);
-          // const final_score = ...;
-          // ---------------------------------------------------------------
 
           return Response.json({
             input: { lat, lon },

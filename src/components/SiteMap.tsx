@@ -203,7 +203,7 @@ export function SiteMap() {
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" aria-label="Click anywhere on the United States to analyze a candidate datacenter site" />
-      <div className="absolute left-4 top-4 z-[1000] rounded-md border border-border bg-card/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
+      <div className="absolute left-4 bottom-4 z-[1000] rounded-md border border-border bg-card/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
         <div className="mb-1 font-semibold">Pipeline legend</div>
         <div className="flex items-center gap-2">
           <span className="inline-block h-[3px] w-5" style={{ background: COLOR_INTERSTATE }} />
