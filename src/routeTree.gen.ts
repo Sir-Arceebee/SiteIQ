@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPipelinesAllRouteImport } from './routes/api.pipelines-all'
 import { Route as ApiAnalyzeRouteImport } from './routes/api.analyze'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPipelinesAllRoute = ApiPipelinesAllRouteImport.update({
+  id: '/api/pipelines-all',
+  path: '/api/pipelines-all',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAnalyzeRoute = ApiAnalyzeRouteImport.update({
@@ -26,27 +32,31 @@ const ApiAnalyzeRoute = ApiAnalyzeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/analyze': typeof ApiAnalyzeRoute
+  '/api/pipelines-all': typeof ApiPipelinesAllRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/analyze': typeof ApiAnalyzeRoute
+  '/api/pipelines-all': typeof ApiPipelinesAllRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/analyze': typeof ApiAnalyzeRoute
+  '/api/pipelines-all': typeof ApiPipelinesAllRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/analyze'
+  fullPaths: '/' | '/api/analyze' | '/api/pipelines-all'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/analyze'
-  id: '__root__' | '/' | '/api/analyze'
+  to: '/' | '/api/analyze' | '/api/pipelines-all'
+  id: '__root__' | '/' | '/api/analyze' | '/api/pipelines-all'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiAnalyzeRoute: typeof ApiAnalyzeRoute
+  ApiPipelinesAllRoute: typeof ApiPipelinesAllRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pipelines-all': {
+      id: '/api/pipelines-all'
+      path: '/api/pipelines-all'
+      fullPath: '/api/pipelines-all'
+      preLoaderRoute: typeof ApiPipelinesAllRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/analyze': {
@@ -71,7 +88,17 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiAnalyzeRoute: ApiAnalyzeRoute,
+  ApiPipelinesAllRoute: ApiPipelinesAllRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
