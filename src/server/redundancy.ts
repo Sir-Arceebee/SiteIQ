@@ -46,6 +46,15 @@ export type RedundancyResult = {
   unique_paths: Array<{ operator: string; pipe_type: string; count: number }>;
 };
 
+/**
+ * NOTE on `min_cut_estimate` vs `unique_operators`:
+ *   - unique_operators = number of distinct companies among nearby segments
+ *   - min_cut_estimate = number of distinct (operator, pipe_type) combos
+ * They differ ONLY when one operator runs both interstate AND intrastate lines
+ * nearby (rare). The UI collapses them into one number — `min_cut_estimate` —
+ * since that's the value that actually represents the supply-graph min-cut.
+ */
+
 function normalizePipeType(t: string | null | undefined): "interstate" | "intrastate" | "other" {
   const v = (t ?? "").toLowerCase();
   if (v.includes("interstate")) return "interstate";

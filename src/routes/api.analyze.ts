@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/analyze")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        let body: { lat?: number; lon?: number };
+        let body: { lat?: number; lon?: number; radius_m?: number };
         try {
           body = await request.json();
         } catch {
@@ -38,6 +38,9 @@ export const Route = createFileRoute("/api/analyze")({
 
         const lat = Number(body.lat);
         const lon = Number(body.lon);
+        const radius_m = Number.isFinite(Number(body.radius_m))
+          ? Math.min(Math.max(Number(body.radius_m), 1_000), 500_000)
+          : 80_000;
         if (
           !Number.isFinite(lat) ||
           !Number.isFinite(lon) ||
@@ -52,7 +55,7 @@ export const Route = createFileRoute("/api/analyze")({
           const pipesRes = await supabase.rpc("nearby_pipelines_geojson", {
             lat,
             lon,
-            radius_m: 80_000,
+            radius_m,
           });
           if (pipesRes.error) throw pipesRes.error;
 
@@ -61,6 +64,7 @@ export const Route = createFileRoute("/api/analyze")({
 
           return Response.json({
             input: { lat, lon },
+            radius_m,
             redundancy,
             nearby_pipeline_count: pipelines.length,
             nearby_pipelines_geo: pipelines.map((p) => ({
