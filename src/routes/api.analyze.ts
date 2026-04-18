@@ -64,6 +64,7 @@ export const Route = createFileRoute("/api/analyze")({
 
           return Response.json({
             input: { lat, lon },
+            radius_m,
             redundancy,
             nearby_pipeline_count: pipelines.length,
             nearby_pipelines_geo: pipelines.map((p) => ({
