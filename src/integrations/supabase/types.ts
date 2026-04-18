@@ -462,6 +462,20 @@ export type Database = {
           vintage_year: number
         }[]
       }
+      nearby_pipelines_geojson: {
+        Args: { lat: number; lon: number; radius_m?: number }
+        Returns: {
+          diameter_in: number
+          distance_m: number
+          geom_geojson: string
+          id: number
+          material: string
+          name: string
+          operator: string
+          pipe_type: string
+          vintage_year: number
+        }[]
+      }
       nearest_grid_cost: {
         Args: { lat: number; lon: number }
         Returns: {
