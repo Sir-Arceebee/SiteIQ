@@ -149,3 +149,25 @@
     color: var(--color-foreground);
   }
 }
+
+/* Leaflet container must have an explicit height; popup themed to match. */
+.leaflet-container {
+  background: oklch(0.14 0.02 240);
+  font-family: inherit;
+}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px -10px oklch(0 0 0 / 0.6);
+}
+.leaflet-popup-content {
+  margin: 12px 14px;
+  font-size: 13px;
+}
+.leaflet-control-attribution {
+  background: oklch(0.18 0.02 240 / 0.7) !important;
+  color: var(--muted-foreground) !important;
+}
+.leaflet-control-attribution a { color: var(--accent) !important; }
