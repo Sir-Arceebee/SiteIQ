@@ -53,10 +53,11 @@ function toWkt(geom: Feature["geometry"]): string[] {
 
 function mapFeature(f: Feature) {
   const p = f.properties;
-  // Adjust these keys to match the actual ArcGIS field names.
+  // Field names match the EIA / ArcGIS "Natural Gas Interstate and Intrastate
+  // Pipelines" dataset. Fall back to alternate casings for safety.
   const name = (p.PipelineName ?? p.NAME ?? p.Name ?? null) as string | null;
   const operator = (p.Operator ?? p.OPERATOR ?? null) as string | null;
-  const rawType = String(p.Type ?? p.TYPE ?? "").toLowerCase();
+  const rawType = String(p.TYPEPIPE ?? p.Type ?? p.TYPE ?? "").toLowerCase();
   const pipe_type = rawType.includes("inter") ? "interstate" : rawType.includes("intra") ? "intrastate" : null;
   const material = (p.Material ?? p.MATERIAL ?? null) as string | null;
   const vintage_year = Number(p.YearInstalled ?? p.YEAR ?? 0) || null;
