@@ -245,10 +245,11 @@ export function SiteMap() {
     }
     map.addLayer(layer);
 
+    const liveMap = map;
+    const liveLayer = layer;
     let cancelled = false;
     async function loadVisible() {
-      if (!map) return;
-      const b = map.getBounds();
+      const b = liveMap.getBounds();
       const params = new URLSearchParams({
         min_lat: String(b.getSouth()),
         min_lon: String(b.getWest()),
@@ -261,13 +262,13 @@ export function SiteMap() {
         const data = (await res.json()) as { pipelines?: Array<{ pipe_type: string | null; geom_geojson: string }>; error?: string };
         if (cancelled) return;
         if (data.error) throw new Error(data.error);
-        layer.clearLayers();
+        liveLayer.clearLayers();
         for (const p of data.pipelines ?? []) {
           try {
             L.geoJSON(JSON.parse(p.geom_geojson), {
               style: { color: colorFor(p.pipe_type), weight: 1, opacity: 0.5 },
               interactive: false,
-            }).addTo(layer);
+            }).addTo(liveLayer);
           } catch { /* skip */ }
         }
       } catch (e) {
