@@ -7,6 +7,7 @@ import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 import { ToolsSidebar, type OptimalFilters } from "@/components/ToolsSidebar";
+import { SearchResultsPanel, type SearchResult } from "@/components/SearchResultsPanel";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -60,6 +61,7 @@ const COLOR_INTERSTATE = "#fb923c";
 const COLOR_INTRASTATE = "#22d3ee";
 const COLOR_OTHER = "#a1a1aa";
 const COLOR_OPTIMAL = "#22c55e";
+const COLOR_POWER = "#facc15";
 
 function classifyType(t: string | null | undefined): "interstate" | "intrastate" | "other" {
   const v = (t ?? "").toLowerCase();
@@ -130,14 +132,17 @@ export function SiteMap() {
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const pipelineLayerRef = useRef<L.LayerGroup | null>(null);
-  const allPipelinesLayerRef = useRef<L.LayerGroup | null>(null);
+  const allGasLayerRef = useRef<L.LayerGroup | null>(null);
+  const allPowerLayerRef = useRef<L.LayerGroup | null>(null);
   const optimalLayerRef = useRef<L.LayerGroup | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [radiusKm, setRadiusKm] = useState(80);
-  const [showAll, setShowAll] = useState(false);
-  const [allLoading, setAllLoading] = useState(false);
+  const [showGas, setShowGas] = useState(false);
+  const [gasLoading, setGasLoading] = useState(false);
+  const [showPower, setShowPower] = useState(false);
+  const [powerLoading, setPowerLoading] = useState(false);
   const [latInput, setLatInput] = useState("");
   const [lonInput, setLonInput] = useState("");
 
@@ -146,9 +151,11 @@ export function SiteMap() {
     pipe_class: "both",
     max_gas_km: 50,
     max_power_km: 50,
+    max_school_km: 0,
   });
   const [optimalLoading, setOptimalLoading] = useState(false);
   const [optimalCount, setOptimalCount] = useState<number | null>(null);
+  const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
 
   const radiusRef = useRef(radiusKm);
   useEffect(() => { radiusRef.current = radiusKm; }, [radiusKm]);
@@ -217,7 +224,8 @@ export function SiteMap() {
       maxZoom: 19,
     }).addTo(map);
 
-    allPipelinesLayerRef.current = L.layerGroup();
+    allGasLayerRef.current = L.layerGroup();
+    allPowerLayerRef.current = L.layerGroup();
     pipelineLayerRef.current = L.layerGroup().addTo(map);
     optimalLayerRef.current = L.layerGroup().addTo(map);
 
@@ -232,13 +240,13 @@ export function SiteMap() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Viewport-based pipelines loader.
+  // Viewport-based gas pipelines loader.
   useEffect(() => {
     const map = mapRef.current;
-    const layer = allPipelinesLayerRef.current;
+    const layer = allGasLayerRef.current;
     if (!map || !layer) return;
 
-    if (!showAll) {
+    if (!showGas) {
       map.removeLayer(layer);
       layer.clearLayers();
       return;
@@ -256,7 +264,7 @@ export function SiteMap() {
         max_lat: String(b.getNorth()),
         max_lon: String(b.getEast()),
       });
-      setAllLoading(true);
+      setGasLoading(true);
       try {
         const res = await fetch(`/api/pipelines-bbox?${params}`);
         const data = (await res.json()) as { pipelines?: Array<{ pipe_type: string | null; geom_geojson: string }>; error?: string };
@@ -274,7 +282,7 @@ export function SiteMap() {
       } catch (e) {
         if (!cancelled) setLastError(e instanceof Error ? e.message : "Failed to load pipelines");
       } finally {
-        if (!cancelled) setAllLoading(false);
+        if (!cancelled) setGasLoading(false);
       }
     }
     void loadVisible();
@@ -283,7 +291,60 @@ export function SiteMap() {
       cancelled = true;
       map.off("moveend", loadVisible);
     };
-  }, [showAll]);
+  }, [showGas]);
+
+  // Viewport-based transmission lines loader.
+  useEffect(() => {
+    const map = mapRef.current;
+    const layer = allPowerLayerRef.current;
+    if (!map || !layer) return;
+
+    if (!showPower) {
+      map.removeLayer(layer);
+      layer.clearLayers();
+      return;
+    }
+    map.addLayer(layer);
+
+    const liveMap = map;
+    const liveLayer = layer;
+    let cancelled = false;
+    async function loadVisible() {
+      const b = liveMap.getBounds();
+      const params = new URLSearchParams({
+        min_lat: String(b.getSouth()),
+        min_lon: String(b.getWest()),
+        max_lat: String(b.getNorth()),
+        max_lon: String(b.getEast()),
+      });
+      setPowerLoading(true);
+      try {
+        const res = await fetch(`/api/transmission-bbox?${params}`);
+        const data = (await res.json()) as { lines?: Array<{ voltage_class: string | null; geom_geojson: string }>; error?: string };
+        if (cancelled) return;
+        if (data.error) throw new Error(data.error);
+        liveLayer.clearLayers();
+        for (const p of data.lines ?? []) {
+          try {
+            L.geoJSON(JSON.parse(p.geom_geojson), {
+              style: { color: COLOR_POWER, weight: 1, opacity: 0.55 },
+              interactive: false,
+            }).addTo(liveLayer);
+          } catch { /* skip */ }
+        }
+      } catch (e) {
+        if (!cancelled) setLastError(e instanceof Error ? e.message : "Failed to load transmission lines");
+      } finally {
+        if (!cancelled) setPowerLoading(false);
+      }
+    }
+    void loadVisible();
+    map.on("moveend", loadVisible);
+    return () => {
+      cancelled = true;
+      map.off("moveend", loadVisible);
+    };
+  }, [showPower]);
 
   function handleGoToCoords() {
     const lat = parseFloat(latInput);
@@ -308,16 +369,31 @@ export function SiteMap() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(filters),
       });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const data = (await res.json()) as { count: number; geojson: any; error?: string };
+      const data = (await res.json()) as { count: number; points: SearchResult[]; error?: string };
       if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
-      L.geoJSON(data.geojson, {
-        style: { color: COLOR_OPTIMAL, weight: 1, fillColor: COLOR_OPTIMAL, fillOpacity: 0.25, opacity: 0.8 },
-      }).addTo(layer);
+
+      const points = data.points ?? [];
+      const pinIcon = L.divIcon({
+        className: "",
+        html: `<div style="width:14px;height:14px;border-radius:50%;background:${COLOR_OPTIMAL};border:2px solid #064e3b;box-shadow:0 0 6px rgba(34,197,94,0.6)"></div>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7],
+      });
+      for (const p of points) {
+        L.marker([p.lat, p.lon], { icon: pinIcon })
+          .bindTooltip(`${p.lat.toFixed(2)}°, ${p.lon.toFixed(2)}° · gas ${p.gas_km}km · pwr ${p.power_km}km`, { direction: "top" })
+          .on("click", () => {
+            mapRef.current?.flyTo([p.lat, p.lon], 9, { duration: 0.8 });
+            void analyzeAt(p.lat, p.lon);
+          })
+          .addTo(layer);
+      }
       setOptimalCount(data.count);
+      setSearchResults(points);
     } catch (e) {
       setLastError(e instanceof Error ? e.message : "Search failed");
       setOptimalCount(0);
+      setSearchResults([]);
     } finally {
       setOptimalLoading(false);
     }
@@ -326,6 +402,12 @@ export function SiteMap() {
   function handleClearOptimal() {
     optimalLayerRef.current?.clearLayers();
     setOptimalCount(null);
+    setSearchResults(null);
+  }
+
+  function handleSelectResult(r: SearchResult) {
+    mapRef.current?.flyTo([r.lat, r.lon], 9, { duration: 0.8 });
+    void analyzeAt(r.lat, r.lon);
   }
 
   return (
@@ -340,9 +422,12 @@ export function SiteMap() {
         onAnalyzeCoords={handleGoToCoords}
         radiusKm={radiusKm}
         setRadiusKm={setRadiusKm}
-        showAll={showAll}
-        setShowAll={setShowAll}
-        allLoading={allLoading}
+        showGas={showGas}
+        setShowGas={setShowGas}
+        gasLoading={gasLoading}
+        showPower={showPower}
+        setShowPower={setShowPower}
+        powerLoading={powerLoading}
         loading={loading}
         filters={filters}
         setFilters={setFilters}
@@ -352,20 +437,28 @@ export function SiteMap() {
         onClearOptimal={handleClearOptimal}
       />
 
+      {searchResults !== null && (
+        <SearchResultsPanel
+          results={searchResults}
+          onSelect={handleSelectResult}
+          onClose={handleClearOptimal}
+        />
+      )}
+
       {/* Bottom-left legend */}
       <div className="absolute left-4 bottom-4 z-[1000] rounded-md border border-border bg-card/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
         <div className="mb-1 font-semibold">Legend</div>
         <div className="flex items-center gap-2">
           <span className="inline-block h-[3px] w-5" style={{ background: COLOR_INTERSTATE }} />
-          Interstate
+          Interstate gas
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-block h-[3px] w-5" style={{ background: COLOR_INTRASTATE }} />
-          Intrastate
+          Intrastate gas
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-block h-3 w-3" style={{ background: COLOR_OPTIMAL, opacity: 0.5 }} />
-          Optimal region
+          <span className="inline-block h-[3px] w-5" style={{ background: COLOR_POWER }} />
+          Electrical grid
         </div>
       </div>
 

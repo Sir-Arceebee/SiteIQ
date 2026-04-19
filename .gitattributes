@@ -1,3 +1,2 @@
-*.geojson filter=lfs diff=lfs merge=lfs -text
-*.sas7bdat filter=lfs diff=lfs merge=lfs -text
-*.dbf filter=lfs diff=lfs merge=lfs -text
+# Bulk source data is no longer tracked in git — see .gitignore.
+# Run scripts/import-*.ts to populate Supabase from upstream sources.

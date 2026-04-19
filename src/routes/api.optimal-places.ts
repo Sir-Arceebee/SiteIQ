@@ -18,9 +18,18 @@ type Body = {
   pipe_class?: "interstate" | "intrastate" | "both";
   max_gas_km?: number;
   max_power_km?: number;
+  max_school_km?: number;
 };
 
-// Coarse US grid (~1.5 degree spacing) over the contiguous US.
+export type OptimalPoint = {
+  lat: number;
+  lon: number;
+  gas_km: number;
+  power_km: number;
+  school_km: number | null;
+};
+
+// Coarse US grid (~1° spacing) over the contiguous US.
 function usGrid(region: NonNullable<Body["region"]>): Array<{ lat: number; lon: number }> {
   const bounds: Record<string, [number, number, number, number]> = {
     all:       [25, -125, 49, -67],
@@ -31,7 +40,7 @@ function usGrid(region: NonNullable<Body["region"]>): Array<{ lat: number; lon: 
     west:      [32, -125, 49, -110],
   };
   const [minLat, minLon, maxLat, maxLon] = bounds[region] ?? bounds.all;
-  const step = 1.5;
+  const step = 1.0;
   const pts: Array<{ lat: number; lon: number }> = [];
   for (let lat = minLat; lat <= maxLat; lat += step) {
     for (let lon = minLon; lon <= maxLon; lon += step) {
@@ -56,29 +65,25 @@ export const Route = createFileRoute("/api/optimal-places")({
         const pipeClass = body.pipe_class ?? "both";
         const maxGasM = (body.max_gas_km ?? 50) * 1000;
         const maxPowerM = (body.max_power_km ?? 50) * 1000;
+        const maxSchoolKm = body.max_school_km ?? 50;
+        const maxSchoolM = maxSchoolKm * 1000;
 
         try {
           const supabase = getSupabase();
           const grid = usGrid(region);
 
-          // Run all checks in parallel; cap concurrency manually.
-          const results: Array<{
-            lat: number;
-            lon: number;
-            gas_m: number;
-            power_m: number;
-            pipe_class: string;
-          }> = [];
+          const results: OptimalPoint[] = [];
 
-          const CONCURRENCY = 12;
+          const CONCURRENCY = 16;
           let idx = 0;
           async function worker() {
             while (idx < grid.length) {
               const myIdx = idx++;
               const { lat, lon } = grid[myIdx];
-              const [pipesRes, powerRes] = await Promise.all([
+              const [pipesRes, powerRes, schoolRes] = await Promise.all([
                 supabase.rpc("nearby_pipelines", { lat, lon, radius_m: maxGasM }),
                 supabase.rpc("nearest_transmission" as never, { lat, lon, radius_m: maxPowerM } as never),
+                supabase.rpc("nearest_school_v2" as never, { lat, lon } as never),
               ]);
               const pipes = (pipesRes.data ?? []) as Array<{ pipe_type: string | null; distance_m: number }>;
               if (pipes.length === 0) continue;
@@ -96,40 +101,31 @@ export const Route = createFileRoute("/api/optimal-places")({
               const powerDist = Number(power[0].distance_m);
               if (!Number.isFinite(powerDist) || powerDist > maxPowerM) continue;
 
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const school = (schoolRes.data ?? []) as any[];
+              const schoolDistRaw = school?.[0]?.distance_m;
+              const schoolDist = Number.isFinite(Number(schoolDistRaw)) ? Number(schoolDistRaw) : null;
+              // Filter: site must be at least maxSchoolKm AWAY from any school (min distance).
+              // i.e., reject if a school is closer than maxSchoolM.
+              if (schoolDist !== null && schoolDist < maxSchoolM) continue;
+
               results.push({
                 lat,
                 lon,
-                gas_m: Math.round(nearestGas),
-                power_m: Math.round(powerDist),
-                pipe_class: pipeClass,
+                gas_km: +(nearestGas / 1000).toFixed(2),
+                power_km: +(powerDist / 1000).toFixed(2),
+                school_km: schoolDist === null ? null : +(schoolDist / 1000).toFixed(2),
               });
             }
           }
           await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
-          // Build a GeoJSON FeatureCollection of square polygons (1.5° each).
-          const half = 0.75;
-          const features = results.map((r) => ({
-            type: "Feature" as const,
-            geometry: {
-              type: "Polygon" as const,
-              coordinates: [[
-                [r.lon - half, r.lat - half],
-                [r.lon + half, r.lat - half],
-                [r.lon + half, r.lat + half],
-                [r.lon - half, r.lat + half],
-                [r.lon - half, r.lat - half],
-              ]],
-            },
-            properties: {
-              gas_km: (r.gas_m / 1000).toFixed(1),
-              power_km: (r.power_m / 1000).toFixed(1),
-            },
-          }));
+          // Sort by combined proximity (lower gas+power is better).
+          results.sort((a, b) => (a.gas_km + a.power_km) - (b.gas_km + b.power_km));
 
           return Response.json({
             count: results.length,
-            geojson: { type: "FeatureCollection", features },
+            points: results,
           });
         } catch (err) {
           const msg = err instanceof Error ? err.message : "Unknown error";

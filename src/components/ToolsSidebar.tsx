@@ -11,6 +11,7 @@ export type OptimalFilters = {
   pipe_class: "interstate" | "intrastate" | "both";
   max_gas_km: number;
   max_power_km: number;
+  max_school_km: number;
 };
 
 type Props = {
@@ -22,9 +23,12 @@ type Props = {
   onAnalyzeCoords: () => void;
   radiusKm: number;
   setRadiusKm: (v: number) => void;
-  showAll: boolean;
-  setShowAll: (v: boolean) => void;
-  allLoading: boolean;
+  showGas: boolean;
+  setShowGas: (v: boolean) => void;
+  gasLoading: boolean;
+  showPower: boolean;
+  setShowPower: (v: boolean) => void;
+  powerLoading: boolean;
   loading: boolean;
 
   // Optimal places
@@ -105,12 +109,22 @@ export function ToolsSidebar(props: Props) {
 
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="show-all" className="font-medium">Show pipelines on map</Label>
+              <Label htmlFor="show-gas" className="font-medium">Show gas pipelines</Label>
               <p className="text-[11px] text-muted-foreground">
-                {props.allLoading ? "Loading…" : "Visible area only"}
+                {props.gasLoading ? "Loading…" : "Visible area only"}
               </p>
             </div>
-            <Switch id="show-all" checked={props.showAll} onCheckedChange={props.setShowAll} />
+            <Switch id="show-gas" checked={props.showGas} onCheckedChange={props.setShowGas} />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="show-power" className="font-medium">Show electrical grid pipelines</Label>
+              <p className="text-[11px] text-muted-foreground">
+                {props.powerLoading ? "Loading…" : "Visible area only"}
+              </p>
+            </div>
+            <Switch id="show-power" checked={props.showPower} onCheckedChange={props.setShowPower} />
           </div>
         </div>
       )}
@@ -167,6 +181,15 @@ export function ToolsSidebar(props: Props) {
             <Slider min={0} max={50} step={0.1} value={[props.filters.max_power_km]}
               onValueChange={(v) => props.setFilters({ ...props.filters, max_power_km: v[0] })} />
           </div>
+          <div>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Min distance from school</Label>
+              <span className="text-xs tabular-nums text-muted-foreground">{props.filters.max_school_km} km</span>
+            </div>
+            <Slider min={0} max={50} step={0.1} value={[props.filters.max_school_km]}
+              onValueChange={(v) => props.setFilters({ ...props.filters, max_school_km: v[0] })} />
+            <p className="mt-1 text-[11px] text-muted-foreground">Sites with a school closer than this are excluded.</p>
+          </div>
           <div className="flex gap-2">
             <Button size="sm" className="flex-1" onClick={props.onSearchOptimal} disabled={props.optimalLoading}>
               {props.optimalLoading ? "Searching…" : "Search"}
@@ -177,7 +200,7 @@ export function ToolsSidebar(props: Props) {
           </div>
           {props.optimalCount !== null && (
             <p className="text-[11px] text-muted-foreground">
-              {props.optimalCount} matching region{props.optimalCount === 1 ? "" : "s"} highlighted in green.
+              {props.optimalCount} matching site{props.optimalCount === 1 ? "" : "s"} pinned in green.
             </p>
           )}
           <p className="text-[11px] text-muted-foreground">
