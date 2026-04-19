@@ -135,6 +135,7 @@ export function SiteMap() {
   const allGasLayerRef = useRef<L.LayerGroup | null>(null);
   const allPowerLayerRef = useRef<L.LayerGroup | null>(null);
   const optimalLayerRef = useRef<L.LayerGroup | null>(null);
+  const listItemsLayerRef = useRef<L.LayerGroup | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -157,6 +158,14 @@ export function SiteMap() {
   const [optimalCount, setOptimalCount] = useState<number | null>(null);
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
 
+  // Places list state
+  const [addByClick, setAddByClick] = useState(false);
+  const [activeListId, setActiveListId] = useState<string | null>(null);
+  const [listRefreshTick, setListRefreshTick] = useState(0);
+  const [lastClick, setLastClick] = useState<{ lat: number; lon: number } | null>(null);
+  const activeListIdRef = useRef(activeListId);
+  useEffect(() => { activeListIdRef.current = activeListId; }, [activeListId]);
+
   const radiusRef = useRef(radiusKm);
   useEffect(() => { radiusRef.current = radiusKm; }, [radiusKm]);
 
@@ -165,6 +174,7 @@ export function SiteMap() {
     if (!map) return;
     setLoading(true);
     setLastError(null);
+    setLastClick({ lat, lon: lng });
 
     pipelineLayerRef.current?.clearLayers();
     if (markerRef.current) markerRef.current.remove();
@@ -179,7 +189,9 @@ export function SiteMap() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lat, lon: lng, radius_m: radiusRef.current * 1000 }),
       });
-      const data = (await res.json()) as AnalyzeResponse | { error: string };
+      const text = await res.text();
+      let data: AnalyzeResponse | { error: string };
+      try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 200) || `HTTP ${res.status}`); }
       if (!res.ok || "error" in data) {
         throw new Error("error" in data ? data.error : `HTTP ${res.status}`);
       }
@@ -228,6 +240,7 @@ export function SiteMap() {
     allPowerLayerRef.current = L.layerGroup();
     pipelineLayerRef.current = L.layerGroup().addTo(map);
     optimalLayerRef.current = L.layerGroup().addTo(map);
+    listItemsLayerRef.current = L.layerGroup().addTo(map);
 
     map.on("click", (ev: L.LeafletMouseEvent) => {
       void analyzeAt(ev.latlng.lat, ev.latlng.lng);
@@ -369,7 +382,9 @@ export function SiteMap() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(filters),
       });
-      const data = (await res.json()) as { count: number; points: SearchResult[]; error?: string };
+      const text = await res.text();
+      let data: { count: number; points: SearchResult[]; error?: string };
+      try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 200) || `HTTP ${res.status}`); }
       if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
 
       const points = data.points ?? [];
@@ -410,6 +425,57 @@ export function SiteMap() {
     void analyzeAt(r.lat, r.lon);
   }
 
+  // Render list-item pins on the map
+  useEffect(() => {
+    const layer = listItemsLayerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    if (!activeListId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/list-items?list_id=${encodeURIComponent(activeListId)}`);
+        const data = (await res.json()) as { items?: Array<{ lat: number; lon: number; label: string | null }> };
+        if (cancelled) return;
+        const icon = L.divIcon({
+          className: "",
+          html: `<div style="width:12px;height:12px;border-radius:2px;background:#3b82f6;border:2px solid #1e3a8a"></div>`,
+          iconSize: [12, 12],
+          iconAnchor: [6, 6],
+        });
+        for (const it of data.items ?? []) {
+          L.marker([it.lat, it.lon], { icon })
+            .bindTooltip(it.label || `${it.lat.toFixed(2)}°, ${it.lon.toFixed(2)}°`)
+            .addTo(layer);
+        }
+      } catch { /* ignore */ }
+    })();
+    return () => { cancelled = true; };
+  }, [activeListId, listRefreshTick]);
+
+  async function handleAddToList() {
+    if (!lastClick || !activeListIdRef.current) return;
+    try {
+      const { getClientId } = await import("@/lib/clientId");
+      const res = await fetch("/api/list-items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          list_id: activeListIdRef.current,
+          client_id: getClientId(),
+          lat: lastClick.lat,
+          lon: lastClick.lon,
+        }),
+      });
+      if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+      setAddByClick(false);
+      setLastClick(null);
+      setListRefreshTick((t) => t + 1);
+    } catch (e) {
+      setLastError(e instanceof Error ? e.message : "Add failed");
+    }
+  }
+
   return (
     <div className="relative h-full w-full">
       <div ref={containerRef} className="h-full w-full" aria-label="Click anywhere on the United States to analyze a candidate datacenter site" />
@@ -435,7 +501,24 @@ export function SiteMap() {
         optimalLoading={optimalLoading}
         optimalCount={optimalCount}
         onClearOptimal={handleClearOptimal}
+        addByClick={addByClick}
+        setAddByClick={setAddByClick}
+        activeListId={activeListId}
+        setActiveListId={setActiveListId}
+        onListItemsChanged={() => setListRefreshTick((t) => t + 1)}
       />
+
+      {addByClick && activeListId && lastClick && !loading && (
+        <div className="absolute left-1/2 bottom-20 z-[1000] -translate-x-1/2">
+          <button
+            type="button"
+            onClick={handleAddToList}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-lg hover:bg-primary/90"
+          >
+            + Add {lastClick.lat.toFixed(2)}°, {lastClick.lon.toFixed(2)}° to list
+          </button>
+        </div>
+      )}
 
       {searchResults !== null && (
         <SearchResultsPanel
