@@ -512,6 +512,7 @@ export function SiteMap() {
         activeListId={activeListId}
         setActiveListId={setActiveListId}
         onListItemsChanged={() => setListRefreshTick((t) => t + 1)}
+        listRefreshTick={listRefreshTick}
       />
 
       {addByClick && activeListId && lastClick && !loading && (
