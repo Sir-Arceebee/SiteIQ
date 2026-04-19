@@ -216,6 +216,15 @@ export function ToolsSidebar(props: Props) {
           </p>
         </div>
       )}
+
+      {/* Tool: Places List Analyzer */}
+      <PlacesListTool
+        addByClick={props.addByClick}
+        setAddByClick={props.setAddByClick}
+        activeListId={props.activeListId}
+        setActiveListId={props.setActiveListId}
+        onItemsChanged={props.onListItemsChanged}
+      />
     </div>
   );
 }

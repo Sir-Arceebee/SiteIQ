@@ -18,6 +18,7 @@ import { Route as ApiListsRouteImport } from './routes/api.lists'
 import { Route as ApiListItemsRouteImport } from './routes/api.list-items'
 import { Route as ApiListAnalyzeRouteImport } from './routes/api.list-analyze'
 import { Route as ApiAnalyzeRouteImport } from './routes/api.analyze'
+import { Route as AnalyzeListIdRouteImport } from './routes/analyze.$listId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -64,9 +65,15 @@ const ApiAnalyzeRoute = ApiAnalyzeRouteImport.update({
   path: '/api/analyze',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnalyzeListIdRoute = AnalyzeListIdRouteImport.update({
+  id: '/analyze/$listId',
+  path: '/analyze/$listId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analyze/$listId': typeof AnalyzeListIdRoute
   '/api/analyze': typeof ApiAnalyzeRoute
   '/api/list-analyze': typeof ApiListAnalyzeRoute
   '/api/list-items': typeof ApiListItemsRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analyze/$listId': typeof AnalyzeListIdRoute
   '/api/analyze': typeof ApiAnalyzeRoute
   '/api/list-analyze': typeof ApiListAnalyzeRoute
   '/api/list-items': typeof ApiListItemsRoute
@@ -90,6 +98,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analyze/$listId': typeof AnalyzeListIdRoute
   '/api/analyze': typeof ApiAnalyzeRoute
   '/api/list-analyze': typeof ApiListAnalyzeRoute
   '/api/list-items': typeof ApiListItemsRoute
@@ -103,6 +112,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/analyze/$listId'
     | '/api/analyze'
     | '/api/list-analyze'
     | '/api/list-items'
@@ -114,6 +124,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/analyze/$listId'
     | '/api/analyze'
     | '/api/list-analyze'
     | '/api/list-items'
@@ -125,6 +136,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/analyze/$listId'
     | '/api/analyze'
     | '/api/list-analyze'
     | '/api/list-items'
@@ -137,6 +149,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalyzeListIdRoute: typeof AnalyzeListIdRoute
   ApiAnalyzeRoute: typeof ApiAnalyzeRoute
   ApiListAnalyzeRoute: typeof ApiListAnalyzeRoute
   ApiListItemsRoute: typeof ApiListItemsRoute
@@ -212,11 +225,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAnalyzeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/analyze/$listId': {
+      id: '/analyze/$listId'
+      path: '/analyze/$listId'
+      fullPath: '/analyze/$listId'
+      preLoaderRoute: typeof AnalyzeListIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalyzeListIdRoute: AnalyzeListIdRoute,
   ApiAnalyzeRoute: ApiAnalyzeRoute,
   ApiListAnalyzeRoute: ApiListAnalyzeRoute,
   ApiListItemsRoute: ApiListItemsRoute,
@@ -229,3 +250,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
