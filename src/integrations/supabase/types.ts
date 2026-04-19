@@ -1181,6 +1181,21 @@ export type Database = {
         Args: { geom: unknown; move: number; wrap: number }
         Returns: unknown
       }
+      transmission_in_bbox: {
+        Args: {
+          max_lat: number
+          max_lon: number
+          max_rows?: number
+          min_lat: number
+          min_lon: number
+        }
+        Returns: {
+          geom_geojson: string
+          id: number
+          voltage: number
+          voltage_class: string
+        }[]
+      }
       unlockrows: { Args: { "": string }; Returns: number }
       updategeometrysrid: {
         Args: {
