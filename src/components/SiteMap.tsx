@@ -119,7 +119,6 @@ function popupHtml(d: AnalyzeResponse): string {
             : ""
         }</td></tr>
         <tr><td style="padding:2px 0">Electricity distance</td><td style="text-align:right">${fmtKm(d.electricity_distance_m)}</td></tr>
-        <tr><td style="padding:2px 0">Predicted reliability</td><td style="text-align:right;color:var(--muted-foreground)">NYI</td></tr>
         <tr><td style="padding:2px 0">Operator reliability</td><td style="text-align:right">${
           d.operator_reliability && d.operator_reliability.score != null
             ? `<strong>${d.operator_reliability.score.toFixed(1)}</strong> <span style="color:var(--muted-foreground)">(${d.operator_reliability.matched_name ?? d.operator_reliability.operator ?? ""})</span>`

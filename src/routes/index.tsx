@@ -42,11 +42,6 @@ function Index() {
               Click anywhere on the US to score the site.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-wider text-muted-foreground sm:text-xs">
-            <Legend swatch="var(--score-good)" label="Good (≥0.40)" />
-            <Legend swatch="var(--score-warn)" label="Marginal" />
-            <Legend swatch="var(--score-bad)" label="Avoid" />
-          </div>
         </div>
       </header>
 
