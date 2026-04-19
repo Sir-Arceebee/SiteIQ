@@ -64,14 +64,6 @@ function Index() {
   );
 }
 
-function Legend({ swatch, label }: { swatch: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/40 px-2 py-1">
-      <span className="h-2 w-2 rounded-full" style={{ background: swatch }} />
-      {label}
-    </span>
-  );
-}
 
 function MapSkeleton() {
   return (
