@@ -32,9 +32,11 @@ type Props = {
   setActiveListId: (id: string | null) => void;
   // notify SiteMap when items change (so it can refresh markers / add-button state)
   onItemsChanged?: () => void;
+  // bumped by SiteMap whenever it adds an item via "Add by click" — forces refetch
+  externalRefreshTick?: number;
 };
 
-export function PlacesListTool({ addByClick, setAddByClick, activeListId, setActiveListId, onItemsChanged }: Props) {
+export function PlacesListTool({ addByClick, setAddByClick, activeListId, setActiveListId, onItemsChanged, externalRefreshTick }: Props) {
   const [open, setOpen] = useState(true);
   const [lists, setLists] = useState<PlacesList[]>([]);
   const [items, setItems] = useState<PlacesItem[]>([]);
@@ -75,7 +77,8 @@ export function PlacesListTool({ addByClick, setAddByClick, activeListId, setAct
   useEffect(() => {
     if (activeListId) void loadItems(activeListId);
     else setItems([]);
-  }, [activeListId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeListId, externalRefreshTick]);
 
   async function createList() {
     setBusy(true); setError(null);
