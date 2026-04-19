@@ -46,6 +46,7 @@ type Props = {
   activeListId: string | null;
   setActiveListId: (id: string | null) => void;
   onListItemsChanged?: () => void;
+  listRefreshTick?: number;
 };
 
 type ToolKey = "place" | "optimal" | null;
@@ -224,6 +225,7 @@ export function ToolsSidebar(props: Props) {
         activeListId={props.activeListId}
         setActiveListId={props.setActiveListId}
         onItemsChanged={props.onListItemsChanged}
+        externalRefreshTick={props.listRefreshTick}
       />
     </div>
   );
