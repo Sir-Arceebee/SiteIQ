@@ -532,6 +532,7 @@ export function SiteMap() {
           results={searchResults}
           onSelect={handleSelectResult}
           onClose={handleClearOptimal}
+          onItemAdded={() => setListRefreshTick((t) => t + 1)}
         />
       )}
 
