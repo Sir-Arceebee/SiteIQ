@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { computeRedundancy, type NearbyPipeline } from "@/server/redundancy";
+import { lookupOperatorReliability } from "@/server/operator-reliability";
 
 type NearbyPipelineGeo = NearbyPipeline & {
   diameter_in?: number | null;
@@ -115,6 +116,10 @@ export const Route = createFileRoute("/api/analyze")({
           const nearestGasM = pipelines.length
             ? Math.round(Math.min(...pipelines.map((p) => p.distance_m)))
             : null;
+          const nearestPipe = pipelines.length
+            ? pipelines.reduce((m, p) => (p.distance_m < m.distance_m ? p : m), pipelines[0])
+            : null;
+          const reliability = lookupOperatorReliability(nearestPipe?.operator ?? null);
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const schoolRow = (schoolRes.data as any[] | null)?.[0] ?? null;
@@ -133,6 +138,7 @@ export const Route = createFileRoute("/api/analyze")({
               : null,
             place_type: placeType,
             predicted_reliability: "NYI",
+            operator_reliability: reliability,
             nearby_pipelines_geo: pipelines.map((p) => ({
               id: p.id,
               name: p.name ?? null,
