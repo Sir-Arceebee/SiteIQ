@@ -156,7 +156,7 @@ export function ToolsSidebar(props: Props) {
               <Label className="text-xs">Max distance from gas line</Label>
               <span className="text-xs tabular-nums text-muted-foreground">{props.filters.max_gas_km} km</span>
             </div>
-            <Slider min={5} max={150} step={5} value={[props.filters.max_gas_km]}
+            <Slider min={0} max={50} step={0.1} value={[props.filters.max_gas_km]}
               onValueChange={(v) => props.setFilters({ ...props.filters, max_gas_km: v[0] })} />
           </div>
           <div>
@@ -164,7 +164,7 @@ export function ToolsSidebar(props: Props) {
               <Label className="text-xs">Max distance from power line</Label>
               <span className="text-xs tabular-nums text-muted-foreground">{props.filters.max_power_km} km</span>
             </div>
-            <Slider min={5} max={150} step={5} value={[props.filters.max_power_km]}
+            <Slider min={0} max={50} step={0.1} value={[props.filters.max_power_km]}
               onValueChange={(v) => props.setFilters({ ...props.filters, max_power_km: v[0] })} />
           </div>
           <div className="flex gap-2">
