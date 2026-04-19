@@ -186,17 +186,6 @@ gas / electric / school distances, area type, and redundancy.
 
 ---
 
-## Plug-in points
-
-| File                              | Purpose                                                                                                                |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `src/server/risk-model.ts`        | Replace `predictFailureProbability` with a real ML model or external API. Currently returns `"NYI"`.                   |
-| `src/server/redundancy.ts`        | Min-cut heuristic over nearby pipelines. Could be precomputed into a `redundancy_cache` table.                         |
-| `src/server/water-access.ts`      | Scoring curve once a real water dataset (e.g. USGS NHD) is loaded into `water_bodies`.                                 |
-| `src/routes/api.analyze.ts`       | Orchestrator. Tweak which RPCs are called and how the response is shaped.                                              |
-| `src/routes/api.optimal-places.ts`| Coarse-grid candidate search. Tune the grid resolution and filter logic here.                                          |
-
----
 
 ## Running on Lovable Cloud (alternative to step 3–5)
 
