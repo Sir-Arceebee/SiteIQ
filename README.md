@@ -52,6 +52,16 @@ layer's operator names rarely match PHMSA exactly, lookup uses a three-stage
 fuzzy match (exact-normalized → substring → token Jaccard). Operators with no
 match show "—" instead of a fake score.
 
+> **Known data mismatch.** The bundled PHMSA reliability CSV is dominated by
+> *local distribution utilities* (city gas companies), while the pipelines
+> GeoJSON is the *interstate / intrastate transmission* network. Only a
+> handful of names appear in both datasets (e.g. Atmos, West Texas Gas), so
+> most clicks will show "—" for operator reliability. To get broad coverage,
+> swap `src/data/operator_reliability_scores.csv` for a transmission-operator
+> dataset (e.g. PHMSA *gas transmission* incident data aggregated by operator)
+> and re-run the app — `operator-reliability-data.ts` is regenerated from the
+> CSV on import.
+
 ---
 
 ## Architecture
