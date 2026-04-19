@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiTransmissionBboxRouteImport } from './routes/api.transmission-bbox'
 import { Route as ApiPipelinesBboxRouteImport } from './routes/api.pipelines-bbox'
 import { Route as ApiPipelinesAllRouteImport } from './routes/api.pipelines-all'
 import { Route as ApiOptimalPlacesRouteImport } from './routes/api.optimal-places'
@@ -18,6 +19,11 @@ import { Route as ApiAnalyzeRouteImport } from './routes/api.analyze'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTransmissionBboxRoute = ApiTransmissionBboxRouteImport.update({
+  id: '/api/transmission-bbox',
+  path: '/api/transmission-bbox',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPipelinesBboxRoute = ApiPipelinesBboxRouteImport.update({
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/api/optimal-places': typeof ApiOptimalPlacesRoute
   '/api/pipelines-all': typeof ApiPipelinesAllRoute
   '/api/pipelines-bbox': typeof ApiPipelinesBboxRoute
+  '/api/transmission-bbox': typeof ApiTransmissionBboxRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/api/optimal-places': typeof ApiOptimalPlacesRoute
   '/api/pipelines-all': typeof ApiPipelinesAllRoute
   '/api/pipelines-bbox': typeof ApiPipelinesBboxRoute
+  '/api/transmission-bbox': typeof ApiTransmissionBboxRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,6 +70,7 @@ export interface FileRoutesById {
   '/api/optimal-places': typeof ApiOptimalPlacesRoute
   '/api/pipelines-all': typeof ApiPipelinesAllRoute
   '/api/pipelines-bbox': typeof ApiPipelinesBboxRoute
+  '/api/transmission-bbox': typeof ApiTransmissionBboxRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -71,6 +80,7 @@ export interface FileRouteTypes {
     | '/api/optimal-places'
     | '/api/pipelines-all'
     | '/api/pipelines-bbox'
+    | '/api/transmission-bbox'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -78,6 +88,7 @@ export interface FileRouteTypes {
     | '/api/optimal-places'
     | '/api/pipelines-all'
     | '/api/pipelines-bbox'
+    | '/api/transmission-bbox'
   id:
     | '__root__'
     | '/'
@@ -85,6 +96,7 @@ export interface FileRouteTypes {
     | '/api/optimal-places'
     | '/api/pipelines-all'
     | '/api/pipelines-bbox'
+    | '/api/transmission-bbox'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -93,6 +105,7 @@ export interface RootRouteChildren {
   ApiOptimalPlacesRoute: typeof ApiOptimalPlacesRoute
   ApiPipelinesAllRoute: typeof ApiPipelinesAllRoute
   ApiPipelinesBboxRoute: typeof ApiPipelinesBboxRoute
+  ApiTransmissionBboxRoute: typeof ApiTransmissionBboxRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -102,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/transmission-bbox': {
+      id: '/api/transmission-bbox'
+      path: '/api/transmission-bbox'
+      fullPath: '/api/transmission-bbox'
+      preLoaderRoute: typeof ApiTransmissionBboxRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/pipelines-bbox': {
@@ -141,16 +161,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiOptimalPlacesRoute: ApiOptimalPlacesRoute,
   ApiPipelinesAllRoute: ApiPipelinesAllRoute,
   ApiPipelinesBboxRoute: ApiPipelinesBboxRoute,
+  ApiTransmissionBboxRoute: ApiTransmissionBboxRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
