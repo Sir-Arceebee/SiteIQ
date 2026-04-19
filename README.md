@@ -3,7 +3,8 @@
 Interactive US map for evaluating datacenter sites. Click anywhere on the map
 and the backend returns nearby natural-gas pipelines, the nearest electric
 transmission line, the nearest public school, an OpenStreetMap-derived place
-type (urban / suburban / rural), and a redundancy score (min-cut + diversity).
+type (urban / suburban / rural), a redundancy score (min-cut + diversity), and
+an operator reliability score (PHMSA-derived) for the nearest gas operator.
 
 The repo is the instructions; Supabase is the data. **Anyone who clones this
 repo and follows the setup below ends up with a fully working app — no
@@ -11,6 +12,45 @@ credentials committed, no multi-hundred-MB datasets committed.**
 
 A live demo runs on Lovable Cloud (managed Supabase) but the project does NOT
 require Lovable to run. You can host it on your own Supabase + any Node host.
+
+---
+
+## Usage
+
+Once the app is running (see Setup below), here's what each tool does:
+
+### Click anywhere on the map
+Drops a marker, fetches the nearest gas line / transmission line / public
+school, queries OpenStreetMap for the surrounding land use (urban / suburban /
+rural), computes a min-cut redundancy estimate from the nearby pipelines, and
+looks up the **operator reliability score** for the nearest gas operator using
+a fuzzy-matched PHMSA dataset. Results render in the marker popup.
+
+### Tools sidebar (top-right)
+- **Place Settings** — fly to specific lat/lon, adjust the analysis radius,
+  toggle "Show gas pipelines" or "Show electrical grid pipelines" overlays
+  (loaded for the visible viewport only).
+- **Search for optimal places** — pick a region and pipeline class, set
+  max-distance-from-gas, max-distance-from-power, and min-distance-from-school
+  sliders, then **Search**. Green pins drop on every grid cell that satisfies
+  the constraints. The Search Results panel (top-left) lists each pin and
+  exposes a `+` button to add it to one of your places lists.
+- **Places List Analyzer** — create named lists, add points either by typing
+  coordinates or by toggling **Add by click** (an "Add to list" button then
+  appears under each map-click popup). Hit **View Data** to open the analysis
+  dashboard.
+
+### Analysis dashboard (`/analyze/<listId>`)
+Runs k-means + PCA on your saved points using their cached gas/power/school
+features. Renders a 2D PCA scatter, a CONUS mini-map, cluster archetype
+summaries, and the top-10 most central sites. Export to CSV.
+
+### Operator reliability score
+The score is the PHMSA-derived `reliability_score` (0 = worst, 100 = best),
+looked up from `src/server/operator-reliability-data.ts`. Because the GIS
+layer's operator names rarely match PHMSA exactly, lookup uses a three-stage
+fuzzy match (exact-normalized → substring → token Jaccard). Operators with no
+match show "—" instead of a fake score.
 
 ---
 
@@ -31,6 +71,7 @@ Server routes (src/routes/api.*.ts)
         │                     nearest_transmission, pipelines_in_bbox
         ├─► Overpass API ──── live landuse query → urban/suburban/rural
         ├─► Redundancy ────── src/server/redundancy.ts (min-cut heuristic)
+        ├─► Operator score ── src/server/operator-reliability.ts (fuzzy match)
         └─► Risk model ────── src/server/risk-model.ts (placeholder, NYI)
 ```
 
