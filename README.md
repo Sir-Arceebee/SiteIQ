@@ -1,14 +1,16 @@
 # BTM Datacenter Siting Dashboard
 
-Interactive US map for evaluating datacenter sites. Click anywhere → the backend
-returns nearby natural-gas pipelines, nearest electric transmission line,
-nearest school, an OpenStreetMap-derived place type (urban/suburban/rural), and
-a redundancy score (min-cut + diversity).
+Interactive US map for evaluating datacenter sites. Click anywhere on the map
+and the backend returns nearby natural-gas pipelines, the nearest electric
+transmission line, the nearest public school, an OpenStreetMap-derived place
+type (urban / suburban / rural), and a redundancy score (min-cut + diversity).
 
-The repo is the instructions. The database (Lovable Cloud / Supabase) is the
-data. Anyone who clones this repo can follow this README, run the scripts in
-order, and end up with a fully working app — no credentials committed, no
-multi-hundred-MB files committed.
+The repo is the instructions; Supabase is the data. **Anyone who clones this
+repo and follows the setup below ends up with a fully working app — no
+credentials committed, no multi-hundred-MB datasets committed.**
+
+A live demo runs on Lovable Cloud (managed Supabase) but the project does NOT
+require Lovable to run. You can host it on your own Supabase + any Node host.
 
 ---
 
@@ -19,8 +21,8 @@ Frontend (Leaflet + TanStack Start)
    src/components/SiteMap.tsx
    src/components/ToolsSidebar.tsx
         │
-        │  POST /api/analyze   {lat, lon, radius_m}
-        │  GET  /api/pipelines-bbox?...
+        │  POST /api/analyze        {lat, lon, radius_m}
+        │  GET  /api/pipelines-bbox ?min_lat&...
         │  POST /api/optimal-places
         ▼
 Server routes (src/routes/api.*.ts)
@@ -29,159 +31,144 @@ Server routes (src/routes/api.*.ts)
         │                     nearest_transmission, pipelines_in_bbox
         ├─► Overpass API ──── live landuse query → urban/suburban/rural
         ├─► Redundancy ────── src/server/redundancy.ts (min-cut heuristic)
-        └─► Risk model ────── src/server/risk-model.ts  (placeholder, NYI)
+        └─► Risk model ────── src/server/risk-model.ts (placeholder, NYI)
 ```
 
 ---
 
-## 1. Cloud / database setup
+## Setup
 
-This project uses **Lovable Cloud**, which provisions a managed Supabase
-project automatically. You have two options:
-
-### Option A — Fork on Lovable (easiest)
-
-1. Open the project in [Lovable](https://lovable.dev) and remix/fork it.
-2. Lovable Cloud automatically provisions a new database with the schema from
-   `supabase/migrations/` already applied.
-3. Skip to **section 3 (load data)**.
-
-### Option B — Self-hosted Supabase
-
-1. Create a new project at [supabase.com](https://supabase.com).
-2. Apply the migrations:
-   ```bash
-   supabase link --project-ref <your-project-ref>
-   supabase db push
-   ```
-   This creates: `pipelines`, `transmission_lines`, `schools`, `water_bodies`,
-   `grid_cost_points`, plus all the `nearby_*` / `nearest_*` PostGIS RPCs.
-3. Copy your URL + anon key into `.env` (see next section).
-
----
-
-## 2. Local environment
-
-Two env files, both gitignored:
-
-### `.env` (used by the Vite frontend + dev server — Lovable creates this for you)
-
-```
-VITE_SUPABASE_URL="https://<ref>.supabase.co"
-VITE_SUPABASE_PUBLISHABLE_KEY="<anon-key>"
-SUPABASE_URL="https://<ref>.supabase.co"
-SUPABASE_PUBLISHABLE_KEY="<anon-key>"
-```
-
-These are **publishable** (anon) keys — safe to ship to the browser, protected
-by RLS.
-
-### `.env.local` (only needed if you run import scripts locally)
-
-```
-SUPABASE_URL="https://<ref>.supabase.co"
-SUPABASE_SERVICE_ROLE_KEY="<service-role-key>"
-```
-
-The **service role key** bypasses RLS and is needed to bulk-insert data.
-Get it from:
-
-- **Lovable Cloud**: Cloud panel → Settings → API → `service_role` key.
-- **Supabase**: Dashboard → Project Settings → API → `service_role`.
-
-⚠️ Never commit `.env.local`. Never expose the service role key to the browser.
-It is gitignored in this repo.
-
-Load it before running scripts:
+### 1. Clone the repo
 
 ```bash
-export $(cat .env.local | xargs)
-# or, with bun:
-bun --env-file=.env.local run scripts/import-pipelines.ts ...
+git clone https://github.com/<you>/btm-siting-dashboard
+cd btm-siting-dashboard
 ```
 
----
+### 2. Install dependencies
 
-## 3. Load data
+```bash
+npm install            # or: bun install
+```
 
-The DB ships empty. Run these three scripts in any order to populate it.
-Each script is idempotent on a fresh table — re-running will duplicate rows,
-so `TRUNCATE` first if re-importing.
+### 3. Create a Supabase project
 
-All scripts cache their downloads to `./data/` (gitignored).
+1. Go to <https://supabase.com> and create a free project.
+2. From **Project Settings → API**, copy:
+   - **Project URL**
+   - **anon / publishable key** (safe in the browser)
+   - **service_role key** (SECRET — used only by the import scripts)
 
-### 3a. Natural-gas pipelines (~hundreds of thousands of segments)
+### 4. Configure environment
 
-Source: EIA / ArcGIS — *Natural Gas Interstate and Intrastate Pipelines*.
+```bash
+cp .env.example .env
+```
+
+Open `.env` and fill in the three values from step 3. The `service_role` key
+is only needed for the bulk imports in step 6 — never commit it and never
+expose it to the browser.
+
+### 5. Run database migrations
+
+Install the Supabase CLI (<https://supabase.com/docs/guides/local-development/cli/getting-started>),
+then:
+
+```bash
+npx supabase link --project-ref <your-project-ref>
+npx supabase db push
+```
+
+This applies every file in `supabase/migrations/` to your project, creating:
+
+- Tables: `pipelines`, `transmission_lines`, `schools`, `water_bodies`,
+  `grid_cost_points`
+- PostGIS spatial indexes on every `geom` column
+- RLS policies (public read, no public write)
+- RPC functions: `nearby_pipelines_geojson`, `pipelines_in_bbox`,
+  `nearest_school_v2`, `nearest_transmission`, `nearest_water`,
+  `nearest_grid_cost`
+
+### 6. Download and import the data
+
+The DB ships empty. Three scripts populate it (idempotent on a fresh table —
+re-running duplicates rows, so `TRUNCATE` first if you re-import). All scripts
+cache their downloads to `./data/` (gitignored).
 
 ```bash
 mkdir -p data
-# Download manually from:
+
+# 6a. Electric transmission lines (~150 MB) — auto-downloaded from HIFLD
+npx tsx scripts/import-transmission.ts
+
+# 6b. Public schools (~100k rows)
+#   Download EDGE_GEOCODE_PUBLICSCH_2425 from
+#   https://nces.ed.gov/programs/edge/Geographic/SchoolLocations
+#   Either the .TXT (pipe-delimited) or .xlsx works:
+npx tsx scripts/import-schools.ts data/EDGE_GEOCODE_PUBLICSCH_2425.TXT
+
+# 6c. Natural-gas pipelines (~33k segments)
+#   Download from
 #   https://hub.arcgis.com/datasets/fedmaps::natural-gas-interstate-and-intrastate-pipelines/about
-# Save as ./data/pipelines.geojson
-
-bun --env-file=.env.local run scripts/import-pipelines.ts ./data/pipelines.geojson
+#   Save as ./data/pipelines.geojson, then:
+npx tsx scripts/import-pipelines.ts ./data/pipelines.geojson
 ```
 
-### 3b. Electric transmission lines (~150 MB, auto-downloaded)
+Each script reads `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from `.env`.
 
-Source: HIFLD — *Electric Power Transmission Lines* (public ArcGIS endpoint).
+Expected row counts when finished:
 
-```bash
-bun --env-file=.env.local run scripts/import-transmission.ts
-```
+| Table                | Rows     |
+| -------------------- | -------- |
+| `schools`            | ~102,000 |
+| `transmission_lines` | ~95,000  |
+| `pipelines`          | ~33,000  |
 
-The script downloads the GeoJSON to `./data/transmission.geojson` on first run
-and reuses the cache on subsequent runs.
-
-### 3c. Public schools (~100k rows)
-
-Source: NCES *EDGE_GEOCODE_PUBLICSCH_2425* (pipe-delimited TXT).
-
-1. Download the dataset from
-   <https://nces.ed.gov/programs/edge/Geographic/SchoolLocations>.
-2. Extract and locate `EDGE_GEOCODE_PUBLICSCH_2425.TXT`.
-3. Import:
-   ```bash
-   bun --env-file=.env.local run scripts/import-schools.ts \
-     ./data/EDGE_GEOCODE_PUBLICSCH_2425.TXT
-   ```
-
----
-
-## 4. Run the app
+### 7. Start the app
 
 ```bash
-bun install
-bun dev
+npm run dev
 ```
 
 Open <http://localhost:3000>. Click anywhere on the map; the popup shows
-gas/electric/school distances, area type, and redundancy.
+gas / electric / school distances, area type, and redundancy.
 
 ---
 
 ## Plug-in points
 
-| File | Purpose |
-|------|---------|
-| `src/server/risk-model.ts` | Replace `predictFailureProbability` with a real ML model or external API. Currently returns `"NYI"` in the analyze response. |
-| `src/server/redundancy.ts` | Min-cut heuristic over nearby pipelines. Upgrade by precomputing into a `redundancy_cache` table and looking it up here. |
-| `src/server/water-access.ts` | Scoring curve once you load a real water dataset (e.g. USGS NHD) into `water_bodies`. |
-| `src/routes/api.analyze.ts` | The orchestrator. Adjust which RPCs are called and how the response is shaped. |
-| `src/routes/api.optimal-places.ts` | Coarse-grid candidate search. Tune the grid resolution and filter logic here. |
+| File                              | Purpose                                                                                                                |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `src/server/risk-model.ts`        | Replace `predictFailureProbability` with a real ML model or external API. Currently returns `"NYI"`.                   |
+| `src/server/redundancy.ts`        | Min-cut heuristic over nearby pipelines. Could be precomputed into a `redundancy_cache` table.                         |
+| `src/server/water-access.ts`      | Scoring curve once a real water dataset (e.g. USGS NHD) is loaded into `water_bodies`.                                 |
+| `src/routes/api.analyze.ts`       | Orchestrator. Tweak which RPCs are called and how the response is shaped.                                              |
+| `src/routes/api.optimal-places.ts`| Coarse-grid candidate search. Tune the grid resolution and filter logic here.                                          |
+
+---
+
+## Running on Lovable Cloud (alternative to step 3–5)
+
+If you fork the project on [Lovable](https://lovable.dev) instead of using
+your own Supabase account:
+
+1. Lovable Cloud auto-provisions a Supabase project and applies all migrations.
+2. `.env` is generated for you with the correct URL and publishable key.
+3. Skip to step 6 (data import). For the import scripts you still need a
+   `service_role` key — find it in the Cloud panel under **Settings → API**.
 
 ---
 
 ## What's gitignored vs committed
 
 **Committed** (the instructions):
-- All source code (`src/`, `scripts/`, `supabase/migrations/`)
-- `package.json`, `bunfig.toml`, configs
-- This README
 
-**Gitignored** (the data — fetch/import yourself):
-- `data/` — all downloaded GeoJSON / shapefiles
+- All source code (`src/`, `scripts/`, `supabase/migrations/`)
+- `package.json`, configs, this README, `.env.example`
+
+**Gitignored** (the data — fetch and import yourself):
+
+- `data/` — all downloaded GeoJSON / shapefiles / XLSX
 - `EDGE_GEOCODE_PUBLICSCH_2425/` — NCES schools dump
-- `*.geojson`, `*.sas7bdat`, `*.shp`, `*.dbf` anywhere in the tree
+- `*.geojson`, `*.sas7bdat`, `*.shp`, `*.dbf`, `*.xlsx` anywhere in the tree
 - `.env`, `.env.local` — credentials

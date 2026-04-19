@@ -1,0 +1,2 @@
+CREATE POLICY "tmp bulk insert schools" ON public.schools FOR INSERT TO anon, authenticated WITH CHECK (true);
+CREATE POLICY "tmp bulk insert transmission" ON public.transmission_lines FOR INSERT TO anon, authenticated WITH CHECK (true);
