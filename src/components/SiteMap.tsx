@@ -36,6 +36,7 @@ export type AnalyzeResponse = {
   nearest_school: { name: string | null; distance_m: number } | null;
   place_type: "urban" | "suburban" | "rural" | "unknown";
   predicted_reliability: "NYI";
+  operator_reliability?: { operator: string | null; matched_name: string | null; score: number | null };
   nearby_pipelines_geo: Array<{
     id: number;
     name: string | null;
@@ -115,6 +116,11 @@ function popupHtml(d: AnalyzeResponse): string {
         <tr><td style="padding:2px 0">Gas line distance</td><td style="text-align:right">${fmtKm(d.gas_distance_m)}</td></tr>
         <tr><td style="padding:2px 0">Electricity distance</td><td style="text-align:right">${fmtKm(d.electricity_distance_m)}</td></tr>
         <tr><td style="padding:2px 0">Predicted reliability</td><td style="text-align:right;color:var(--muted-foreground)">NYI</td></tr>
+        <tr><td style="padding:2px 0">Operator reliability</td><td style="text-align:right">${
+          d.operator_reliability && d.operator_reliability.score != null
+            ? `<strong>${d.operator_reliability.score.toFixed(1)}</strong> <span style="color:var(--muted-foreground)">(${d.operator_reliability.matched_name ?? d.operator_reliability.operator ?? ""})</span>`
+            : `<span style="color:var(--muted-foreground)">—</span>`
+        }</td></tr>
         <tr><td style="padding:2px 0">Min-cut</td><td style="text-align:right"><strong>${d.redundancy.min_cut_estimate}</strong></td></tr>
         <tr><td style="padding:2px 0">Diversity</td><td style="text-align:right"><strong>${diversityLabel(d.redundancy.diversity_status)}</strong></td></tr>
         <tr><td style="padding:2px 0">School proximity</td><td style="text-align:right">${
