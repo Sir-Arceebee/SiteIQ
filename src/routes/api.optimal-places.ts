@@ -69,13 +69,23 @@ export const Route = createFileRoute("/api/optimal-places")({
 
         const region = body.region ?? "all";
         const pipeClass = body.pipe_class ?? "both";
-        const maxGasM = (body.max_gas_km ?? 50) * 1000;
-        const maxPowerM = (body.max_power_km ?? 50) * 1000;
+        const maxGasKm = body.max_gas_km ?? 50;
+        const maxPowerKm = body.max_power_km ?? 50;
+        const maxGasM = maxGasKm * 1000;
+        const maxPowerM = maxPowerKm * 1000;
         const minSchoolM = (body.max_school_km ?? 0) * 1000;
         const bbox = REGIONS[region] ?? REGIONS.all;
-        // 4×4 tiles for "all" (16 small calls), 2×2 otherwise. Each call stays
-        // well under the DB statement_timeout even on a large bbox.
-        const tiles = tileBbox(bbox, region === "all" ? 4 : 2);
+        // Grid step in degrees. 1° ≈ 111 km. We sample at ~half the smaller
+        // distance constraint so candidate cells can't all fall outside a
+        // narrow buffer (e.g. 10km gas with 1° step would skip valid sites).
+        // Floor at 0.1° (~11 km) so very tight thresholds don't blow up the
+        // grid size and timeout the DB.
+        const minConstraintKm = Math.min(maxGasKm, maxPowerKm);
+        const stepDeg = Math.max(0.1, Math.min(1.0, minConstraintKm / 222));
+        // Tile count scales inversely with step: smaller step → more cells per
+        // tile → need smaller tiles to stay under DB statement_timeout.
+        const tileN = stepDeg <= 0.2 ? 6 : stepDeg <= 0.5 ? 4 : region === "all" ? 4 : 2;
+        const tiles = tileBbox(bbox, tileN);
 
         try {
           const supabase = getSupabase();
@@ -89,7 +99,7 @@ export const Route = createFileRoute("/api/optimal-places")({
                 min_lon: minLon,
                 max_lat: maxLat,
                 max_lon: maxLon,
-                step_deg: 1.0,
+                step_deg: stepDeg,
                 max_gas_m: maxGasM,
                 max_power_m: maxPowerM,
                 min_school_m: minSchoolM,

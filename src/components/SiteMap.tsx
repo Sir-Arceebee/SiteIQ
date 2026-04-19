@@ -113,7 +113,11 @@ function popupHtml(d: AnalyzeResponse): string {
       </div>
       <table style="width:100%;font-size:12px;border-collapse:collapse">
         <tr><td style="padding:2px 0">Area</td><td style="text-align:right"><strong>${placeTypeLabel(d.place_type)}</strong></td></tr>
-        <tr><td style="padding:2px 0">Gas line distance</td><td style="text-align:right">${fmtKm(d.gas_distance_m)}</td></tr>
+        <tr><td style="padding:2px 0">Gas line distance</td><td style="text-align:right">${fmtKm(d.gas_distance_m)}${
+          d.operator_reliability?.operator
+            ? ` <span style="color:var(--muted-foreground)">(${d.operator_reliability.operator})</span>`
+            : ""
+        }</td></tr>
         <tr><td style="padding:2px 0">Electricity distance</td><td style="text-align:right">${fmtKm(d.electricity_distance_m)}</td></tr>
         <tr><td style="padding:2px 0">Predicted reliability</td><td style="text-align:right;color:var(--muted-foreground)">NYI</td></tr>
         <tr><td style="padding:2px 0">Operator reliability</td><td style="text-align:right">${
