@@ -74,6 +74,80 @@ export type Database = {
         }
         Relationships: []
       }
+      places_list_items: {
+        Row: {
+          client_id: string
+          created_at: string
+          gas_m: number | null
+          id: string
+          label: string | null
+          lat: number
+          list_id: string
+          lon: number
+          pipe_type: string | null
+          power_m: number | null
+          school_m: number | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          gas_m?: number | null
+          id?: string
+          label?: string | null
+          lat: number
+          list_id: string
+          lon: number
+          pipe_type?: string | null
+          power_m?: number | null
+          school_m?: number | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          gas_m?: number | null
+          id?: string
+          label?: string | null
+          lat?: number
+          list_id?: string
+          lon?: number
+          pipe_type?: string | null
+          power_m?: number | null
+          school_m?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "places_list_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "places_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      places_lists: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       schools: {
         Row: {
           created_at: string | null
@@ -376,6 +450,28 @@ export type Database = {
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      find_optimal_sites: {
+        Args: {
+          max_gas_m?: number
+          max_lat: number
+          max_lon: number
+          max_power_m?: number
+          max_results?: number
+          min_lat: number
+          min_lon: number
+          min_school_m?: number
+          pipe_class?: string
+          step_deg?: number
+        }
+        Returns: {
+          gas_m: number
+          lat: number
+          lon: number
+          pipe_type: string
+          power_m: number
+          school_m: number
+        }[]
+      }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
+import { PlacesListTool } from "@/components/PlacesListTool";
 
 export type OptimalFilters = {
   region: "all" | "northeast" | "southeast" | "midwest" | "southwest" | "west";
@@ -38,6 +39,13 @@ type Props = {
   optimalLoading: boolean;
   optimalCount: number | null;
   onClearOptimal: () => void;
+
+  // Places lists
+  addByClick: boolean;
+  setAddByClick: (v: boolean) => void;
+  activeListId: string | null;
+  setActiveListId: (id: string | null) => void;
+  onListItemsChanged?: () => void;
 };
 
 type ToolKey = "place" | "optimal" | null;
@@ -208,6 +216,15 @@ export function ToolsSidebar(props: Props) {
           </p>
         </div>
       )}
+
+      {/* Tool: Places List Analyzer */}
+      <PlacesListTool
+        addByClick={props.addByClick}
+        setAddByClick={props.setAddByClick}
+        activeListId={props.activeListId}
+        setActiveListId={props.setActiveListId}
+        onItemsChanged={props.onListItemsChanged}
+      />
     </div>
   );
 }
