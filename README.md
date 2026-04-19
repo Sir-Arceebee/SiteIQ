@@ -64,6 +64,128 @@ match show "—" instead of a fake score.
 
 ---
 
+## Operator Reliability Model
+
+### What the score represents
+
+Each operator receives a `reliability_score` from 0 (worst) to 100 (best).
+The score reflects the **material composition of that operator's pipe
+network**, weighted by statistically derived failure risk multipliers. An
+operator whose network is dominated by modern polyethylene plastic scores near
+100; one with a high proportion of aging unprotected bare steel scores lower.
+
+### Where it lives in this repo
+
+The training pipeline is **not committed** — only its output is:
+
+```
+src/
+  data/
+    operator_reliability_scores.csv   # Pre-computed scores — edit this to change scores
+  server/
+    operator-reliability-data.ts      # Imports the CSV and exports it as a typed object
+    operator-reliability.ts           # Runtime fuzzy-match lookup (reads the above)
+```
+
+To swap in different scores — whether from a newer PHMSA download, a different
+state, or a different model entirely — replace `operator_reliability_scores.csv`
+with a file that has the same two columns:
+
+```
+OPERATOR_NAME,reliability_score
+ATMOS ENERGY CORPORATION - MID-TEX,77.3
+CPS ENERGY,78.7
+...
+```
+
+`operator-reliability-data.ts` is auto-generated from the CSV on import and
+does not need to be edited manually.
+
+### How the bundled scores were generated
+
+The scores were produced offline using two PHMSA datasets downloaded from
+[phmsa.dot.gov](https://phmsa.dot.gov/data-and-statistics/pipeline/source-data):
+
+| Dataset | Format | Years | Key columns used |
+|---|---|---|---|
+| Gas Distribution Incident Data | Tab-separated `.txt` | 2010–2026 | `IYEAR`, `INSTALLATION_YEAR`, `MATERIAL_INVOLVED`, `CAUSE` |
+| Gas Distribution Annual Report (Form 7100.1-1) | CSV, one file per year | 2017–2025 | `OPERATOR_NAME`, `MMILES_*` material columns, `STOP` (state) |
+
+**Step 1 — Train a Cox proportional hazards model on incident data.**
+
+A Cox survival model (from the Python `lifelines` library) was fitted to
+predict time-to-failure as a function of pipe material. Incidents caused by
+excavation damage, outside force, and natural force were excluded first —
+those failures are random with respect to pipe material, since a backhoe hits
+plastic and steel equally. Only material-driven failures were used (~304
+incidents after filtering and cleaning).
+
+Years in service at time of incident was computed as
+`IYEAR − INSTALLATION_YEAR`. Pipe material was one-hot encoded with
+**plastic as the baseline** (most reliable) category.
+
+The model outputs hazard ratios — how quickly each material fails relative to
+plastic. Because a lower hazard ratio means *shorter* time to failure, the
+ratios were inverted (`1 / hazard_ratio`) to produce risk weights where higher
+= more dangerous:
+
+| Material | Hazard ratio | Risk weight (inverted) |
+|---|---|---|
+| Plastic (PE) | 1.00 (baseline) | 1.00 |
+| Other / Unknown | 0.64 | 1.56 |
+| Steel (all) | 0.20 | 4.98 |
+| Cast / Wrought Iron | 0.13 | 7.83 |
+
+**Step 2 — Score each Texas operator from their annual report data.**
+
+For each operator's most recent annual report, a weighted average risk was
+computed across all pipe material columns divided by total mains mileage.
+Steel was further subdivided by cathodic protection and coating status:
+
+| Annual report column | Risk weight applied |
+|---|---|
+| `MMILES_CI` / `MMILES_CI_WR_TOTAL` | 7.83 |
+| `MMILES_STEEL_UNP_BARE` | 7.46 |
+| `MMILES_STEEL_UNP_COATED` | 5.47 |
+| `MMILES_STEEL_CP_BARE` | 3.98 |
+| `MMILES_STEEL_CP_COATED` | 2.49 |
+| `MMILES_PE_TOTAL` | 1.00 |
+
+```
+raw_risk = Σ (miles_of_material × risk_weight) / total_miles
+reliability_score = 100 × (1 − (raw_risk − min) / (max − min))
+```
+
+Raw risk was min-max normalized and inverted so 100 = most reliable, 0 = least.
+
+### Limitations of the bundled scores
+
+- **Texas operators only.** Annual report data was filtered to Texas (`STOP = TX`),
+  yielding 143 scored operators. Operators outside Texas return "—" in the UI.
+- **Distribution vs. transmission mismatch.** PHMSA data covers local
+  distribution companies; the pipeline GeoJSON layer is the interstate /
+  intrastate *transmission* network. Match rates are low — see the Known Data
+  Mismatch note under Operator Reliability Score above.
+- **No censored observations.** A fully rigorous survival model would include
+  pipe-years that did *not* fail as censored data. This model trains only on
+  failures, which slightly biases the age-at-failure estimates.
+
+### Replacing the scores with a different dataset
+
+To generate scores for a different state or from a newer PHMSA download:
+
+1. Download the Gas Distribution Annual Report CSVs from phmsa.dot.gov for
+   your target state and years.
+2. Concatenate the yearly CSVs, filter to your state (`STOP == 'XX'`), and
+   keep the most recent report per operator.
+3. Apply the risk weights from the table above (or re-derive them by
+   re-running the Cox model on the incident data).
+4. Produce a two-column CSV with `OPERATOR_NAME` and `reliability_score`
+   (0–100 scale, higher = more reliable).
+5. Overwrite `src/data/operator_reliability_scores.csv` and restart the app.
+
+---
+
 ## Architecture
 
 ```
@@ -186,7 +308,6 @@ gas / electric / school distances, area type, and redundancy.
 
 ---
 
-
 ## Running on Lovable Cloud (alternative to step 3–5)
 
 If you fork the project on [Lovable](https://lovable.dev) instead of using
@@ -205,10 +326,11 @@ your own Supabase account:
 
 - All source code (`src/`, `scripts/`, `supabase/migrations/`)
 - `package.json`, configs, this README, `.env.example`
+- `src/data/operator_reliability_scores.csv` — pre-computed operator scores (see Operator Reliability Model above for how to regenerate)
 
 **Gitignored** (the data — fetch and import yourself):
 
-- `data/` — all downloaded GeoJSON / shapefiles / XLSX
+- `data/` — all downloaded GeoJSON / shapefiles / XLSX / PHMSA source files
 - `EDGE_GEOCODE_PUBLICSCH_2425/` — NCES schools dump
 - `*.geojson`, `*.sas7bdat`, `*.shp`, `*.dbf`, `*.xlsx` anywhere in the tree
 - `.env`, `.env.local` — credentials
