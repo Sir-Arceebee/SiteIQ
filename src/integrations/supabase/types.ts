@@ -119,6 +119,33 @@ export type Database = {
         }
         Relationships: []
       }
+      transmission_lines: {
+        Row: {
+          created_at: string | null
+          geom: unknown
+          id: number
+          owner: string | null
+          voltage: number | null
+          voltage_class: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          geom: unknown
+          id?: number
+          owner?: string | null
+          voltage?: number | null
+          voltage_class?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          geom?: unknown
+          id?: number
+          owner?: string | null
+          voltage?: number | null
+          voltage_class?: string | null
+        }
+        Relationships: []
+      }
       water_bodies: {
         Row: {
           created_at: string | null
@@ -493,6 +520,23 @@ export type Database = {
           name: string
         }[]
       }
+      nearest_school_v2: {
+        Args: { lat: number; lon: number }
+        Returns: {
+          distance_m: number
+          id: number
+          name: string
+        }[]
+      }
+      nearest_transmission: {
+        Args: { lat: number; lon: number; radius_m?: number }
+        Returns: {
+          distance_m: number
+          id: number
+          owner: string
+          voltage: number
+        }[]
+      }
       nearest_water: {
         Args: { lat: number; lon: number; radius_m?: number }
         Returns: {
@@ -500,6 +544,20 @@ export type Database = {
           id: number
           kind: string
           name: string
+        }[]
+      }
+      pipelines_in_bbox: {
+        Args: {
+          max_lat: number
+          max_lon: number
+          max_rows?: number
+          min_lat: number
+          min_lon: number
+        }
+        Returns: {
+          geom_geojson: string
+          id: number
+          pipe_type: string
         }[]
       }
       populate_geometry_columns:

@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPipelinesBboxRouteImport } from './routes/api.pipelines-bbox'
 import { Route as ApiPipelinesAllRouteImport } from './routes/api.pipelines-all'
+import { Route as ApiOptimalPlacesRouteImport } from './routes/api.optimal-places'
 import { Route as ApiAnalyzeRouteImport } from './routes/api.analyze'
 
 const IndexRoute = IndexRouteImport.update({
@@ -18,9 +20,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPipelinesBboxRoute = ApiPipelinesBboxRouteImport.update({
+  id: '/api/pipelines-bbox',
+  path: '/api/pipelines-bbox',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPipelinesAllRoute = ApiPipelinesAllRouteImport.update({
   id: '/api/pipelines-all',
   path: '/api/pipelines-all',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOptimalPlacesRoute = ApiOptimalPlacesRouteImport.update({
+  id: '/api/optimal-places',
+  path: '/api/optimal-places',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAnalyzeRoute = ApiAnalyzeRouteImport.update({
@@ -32,31 +44,55 @@ const ApiAnalyzeRoute = ApiAnalyzeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/analyze': typeof ApiAnalyzeRoute
+  '/api/optimal-places': typeof ApiOptimalPlacesRoute
   '/api/pipelines-all': typeof ApiPipelinesAllRoute
+  '/api/pipelines-bbox': typeof ApiPipelinesBboxRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/analyze': typeof ApiAnalyzeRoute
+  '/api/optimal-places': typeof ApiOptimalPlacesRoute
   '/api/pipelines-all': typeof ApiPipelinesAllRoute
+  '/api/pipelines-bbox': typeof ApiPipelinesBboxRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/analyze': typeof ApiAnalyzeRoute
+  '/api/optimal-places': typeof ApiOptimalPlacesRoute
   '/api/pipelines-all': typeof ApiPipelinesAllRoute
+  '/api/pipelines-bbox': typeof ApiPipelinesBboxRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/analyze' | '/api/pipelines-all'
+  fullPaths:
+    | '/'
+    | '/api/analyze'
+    | '/api/optimal-places'
+    | '/api/pipelines-all'
+    | '/api/pipelines-bbox'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/analyze' | '/api/pipelines-all'
-  id: '__root__' | '/' | '/api/analyze' | '/api/pipelines-all'
+  to:
+    | '/'
+    | '/api/analyze'
+    | '/api/optimal-places'
+    | '/api/pipelines-all'
+    | '/api/pipelines-bbox'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/analyze'
+    | '/api/optimal-places'
+    | '/api/pipelines-all'
+    | '/api/pipelines-bbox'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiAnalyzeRoute: typeof ApiAnalyzeRoute
+  ApiOptimalPlacesRoute: typeof ApiOptimalPlacesRoute
   ApiPipelinesAllRoute: typeof ApiPipelinesAllRoute
+  ApiPipelinesBboxRoute: typeof ApiPipelinesBboxRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -68,11 +104,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/pipelines-bbox': {
+      id: '/api/pipelines-bbox'
+      path: '/api/pipelines-bbox'
+      fullPath: '/api/pipelines-bbox'
+      preLoaderRoute: typeof ApiPipelinesBboxRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/pipelines-all': {
       id: '/api/pipelines-all'
       path: '/api/pipelines-all'
       fullPath: '/api/pipelines-all'
       preLoaderRoute: typeof ApiPipelinesAllRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/optimal-places': {
+      id: '/api/optimal-places'
+      path: '/api/optimal-places'
+      fullPath: '/api/optimal-places'
+      preLoaderRoute: typeof ApiOptimalPlacesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/analyze': {
@@ -88,7 +138,9 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiAnalyzeRoute: ApiAnalyzeRoute,
+  ApiOptimalPlacesRoute: ApiOptimalPlacesRoute,
   ApiPipelinesAllRoute: ApiPipelinesAllRoute,
+  ApiPipelinesBboxRoute: ApiPipelinesBboxRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
