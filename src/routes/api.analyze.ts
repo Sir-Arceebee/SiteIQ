@@ -8,21 +8,65 @@ type NearbyPipelineGeo = NearbyPipeline & {
   geom_geojson: string;
 };
 
-// Use anon key server-side — pipelines table has public read RLS,
-// and nearby_pipelines_geojson is granted to anon. No service role needed.
 function getSupabase() {
   const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
   const key =
     process.env.SUPABASE_PUBLISHABLE_KEY ??
     process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!url || !key) {
-    throw new Error(
-      "Missing Supabase env vars (SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY).",
-    );
+    throw new Error("Missing Supabase env vars (SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY).");
   }
   return createClient<Database>(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+/**
+ * Classify a point as urban / suburban / rural using OpenStreetMap Overpass API.
+ * Uses landuse tags within ~2km. Falls back to "unknown" on failure / timeout.
+ */
+async function classifyPlaceType(
+  lat: number,
+  lon: number,
+): Promise<"urban" | "suburban" | "rural" | "unknown"> {
+  const radius = 2000; // meters
+  const query = `
+    [out:json][timeout:8];
+    (
+      way["landuse"~"residential|commercial|industrial|retail"](around:${radius},${lat},${lon});
+      relation["landuse"~"residential|commercial|industrial|retail"](around:${radius},${lat},${lon});
+    );
+    out tags 50;
+  `.trim();
+
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 9_000);
+    const res = await fetch("https://overpass-api.de/api/interpreter", {
+      method: "POST",
+      body: query,
+      headers: { "Content-Type": "text/plain" },
+      signal: ctrl.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return "unknown";
+    const data = (await res.json()) as { elements?: Array<{ tags?: { landuse?: string } }> };
+    const counts = { residential: 0, commercial: 0, industrial: 0, retail: 0 };
+    for (const el of data.elements ?? []) {
+      const lu = el.tags?.landuse;
+      if (lu && lu in counts) counts[lu as keyof typeof counts]++;
+    }
+    const total = counts.residential + counts.commercial + counts.industrial + counts.retail;
+    if (total === 0) return "rural";
+    // Heuristic: dense residential + commercial = urban; mostly residential = suburban
+    if (counts.commercial + counts.retail + counts.industrial >= 3 && counts.residential >= 2) {
+      return "urban";
+    }
+    if (counts.residential >= 1) return "suburban";
+    return "rural";
+  } catch {
+    return "unknown";
+  }
 }
 
 export const Route = createFileRoute("/api/analyze")({
@@ -52,21 +96,43 @@ export const Route = createFileRoute("/api/analyze")({
 
         try {
           const supabase = getSupabase();
-          const pipesRes = await supabase.rpc("nearby_pipelines_geojson", {
-            lat,
-            lon,
-            radius_m,
-          });
+
+          // Run all four lookups in parallel.
+          const [pipesRes, schoolRes, transRes, placeType] = await Promise.all([
+            supabase.rpc("nearby_pipelines_geojson", { lat, lon, radius_m }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            supabase.rpc("nearest_school_v2" as any, { lat, lon }),
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            supabase.rpc("nearest_transmission" as any, { lat, lon, radius_m: 200_000 }),
+            classifyPlaceType(lat, lon),
+          ]);
+
           if (pipesRes.error) throw pipesRes.error;
 
           const pipelines = (pipesRes.data ?? []) as NearbyPipelineGeo[];
           const redundancy = computeRedundancy(pipelines);
+
+          const nearestGasM = pipelines.length
+            ? Math.round(Math.min(...pipelines.map((p) => p.distance_m)))
+            : null;
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const schoolRow = (schoolRes.data as any[] | null)?.[0] ?? null;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const transRow = (transRes.data as any[] | null)?.[0] ?? null;
 
           return Response.json({
             input: { lat, lon },
             radius_m,
             redundancy,
             nearby_pipeline_count: pipelines.length,
+            gas_distance_m: nearestGasM,
+            electricity_distance_m: transRow ? Math.round(transRow.distance_m) : null,
+            nearest_school: schoolRow
+              ? { name: schoolRow.name as string | null, distance_m: Math.round(schoolRow.distance_m) }
+              : null,
+            place_type: placeType,
+            predicted_reliability: "NYI",
             nearby_pipelines_geo: pipelines.map((p) => ({
               id: p.id,
               name: p.name ?? null,
