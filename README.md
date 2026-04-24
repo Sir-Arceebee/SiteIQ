@@ -1,6 +1,6 @@
 # BTM Datacenter Siting Dashboard
 
-Interactive US map for evaluating land sites for datacenter. Click anywhere on the map
+Interactive US map for evaluating land sites for datacenters. Click anywhere on the map
 and the backend returns nearby natural-gas pipelines, the nearest electric
 transmission line, the nearest public school, an OpenStreetMap-derived place
 type (urban / suburban / rural), a redundancy score (min-cut + diversity), and
